@@ -2,19 +2,20 @@ const puppeteer = require('puppeteer');
 const twitter = require('./twitter');
 
 (async () => {
-	const USERNAME = 'Twitter Email';
-	const PASSWORD = 'Password';
+  const USERNAME = 'dev_dobroslav';
+  const PASSWORD = '29UeshnR7daFwpP';
 
-	await twitter.initialize();
+  await twitter.initialize();
 
-	//await twitter.login(USERNAME,PASSWORD);
+  await twitter.login(USERNAME, PASSWORD);
 
-	//await twitter.postTweet('Hello World.This Is Just A Test Message For puppeteer For Web Scraping Using Nodejs');
+  //await twitter.postTweet('Hello World.This Is Just A Test Message For puppeteer For Web Scraping Using Nodejs');
 
-	let details = await twitter.getUser('sah75official');
+  const details = await twitter.getUser('elonmusk');
 
-	await twitter.getTweets('sah75official',50);
+  console.log(details);
 
-	await twitter.end();
+  await twitter.getTweets('elonmusk', 10);
 
+  await twitter.end();
 })();

@@ -3,137 +3,152 @@ const fs = require('fs');
 
 const BASE_URL = 'https://twitter.com/';
 const LOGIN_URL = 'https://twitter.com/login';
-const USERNAME_URL = (username) =>  `https://twitter.com/${username}`
+const USERNAME_URL = (username) => `https://twitter.com/${username}`;
 
 let browser = null;
 let page = null;
 
 const twitter = {
-	initialize : async () => {
-		browser = await puppeteer.launch({
-			headless : false,
-			defaultViewport: {
-				width: 1440,
-				height: 1080
-			}
-		});
-		page = await browser.newPage();
-		await page.goto(BASE_URL);
-	},
+  initialize: async () => {
+    browser = await puppeteer.launch({
+      headless: false,
+      defaultViewport: {
+        width: 1440,
+        height: 1080,
+      },
+    });
+    page = await browser.newPage();
+    await page.goto(BASE_URL);
+  },
 
-	login: async (username,password) => {
-		await page.goto(LOGIN_URL);
-		await page.waitFor('form[class="t1-form clearfix signin js-signin"] input[name="session[username_or_email]"]');
-		await page.type('form[class="t1-form clearfix signin js-signin"] input[name="session[username_or_email]"]',username,{delay: 25});
-		await page.type('form[class="t1-form clearfix signin js-signin"] input[name="session[password]"]',password,{delay: 25});
+  login: async (username, password) => {
+    await page.goto(LOGIN_URL);
+    await page.waitFor('input[name="session[username_or_email]"]');
+    await page.waitFor('input[name="session[password]"]');
+    const emailInput = await page.$('input[name="session[username_or_email]"]');
+    await emailInput.type(username, { delay: 25 });
+    const passwordInput = await page.$('input[name="session[password]"]');
+    await passwordInput.type(password, { delay: 25 });
+    await page.waitFor('div[data-testid="LoginForm_Login_Button"]');
+    await page.click('div[data-testid="LoginForm_Login_Button"]');
+    await page.waitFor('.public-DraftStyleDefault-block');
+    await page.waitFor(1000);
+  },
+  postTweet: async (message) => {
+    let url = await page.url();
 
-		await page.click('button[type="submit"][class="submit EdgeButton EdgeButton--primary EdgeButtom--medium"]')
-		await page.waitFor('.public-DraftStyleDefault-block');
-		await page.waitFor(1000)
-	},
-	postTweet: async (message) => {
-		let url = await page.url();
+    if (url != BASE_URL) {
+      await page.goto(BASE_URL);
+    }
+    await page.waitFor('.public-DraftStyleDefault-block');
+    await page.click('.public-DraftStyleDefault-block');
+    await page.waitFor(500);
+    await page.keyboard.type(message, { dealy: 50 });
+    await page.click('div.r-urgr8i:nth-child(4)');
+  },
+  getUser: async (username) => {
+    let url = await page.url();
 
-		if(url != BASE_URL){
-			await page.goto(BASE_URL);
-		}
-		await page.waitFor('.public-DraftStyleDefault-block');
-		await page.click('.public-DraftStyleDefault-block');
-		await page.waitFor(500)
-		await page.keyboard.type(message,{dealy: 50});
-		await page.click('div.r-urgr8i:nth-child(4)')
-	},
-	getUser: async (username) => {
-		let url = await page.url();
+    if (url != USERNAME_URL(username)) {
+      await page.goto(USERNAME_URL(username));
+    }
+    await page.waitFor('h1[class="ProfileHeaderCard-name"] > a');
 
-		if(url != USERNAME_URL(username)){
-			await page.goto(USERNAME_URL(username));
-		}
-		await page.waitFor('h1[class="ProfileHeaderCard-name"] > a');
+    let details = await page.evaluate(() => {
+      return {
+        fullName: document.querySelector('h1[class="ProfileHeaderCard-name"] > a') ? document.querySelector('h1[class="ProfileHeaderCard-name"] > a').innerText : '',
 
-		let details = await page.evaluate(() => {
-			return {
-				fullName : document.querySelector('h1[class="ProfileHeaderCard-name"] > a') ? document.querySelector('h1[class="ProfileHeaderCard-name"] > a').innerText : '',
+        description: document.querySelector('p[class="ProfileHeaderCard-bio u-dir"]') ? document.querySelector('p[class="ProfileHeaderCard-bio u-dir"]').innerText : '',
 
+        followersCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--followers"] > a > span[data-count]')
+          ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--followers"] > a > span[data-count]').getAttribute('data-count')
+          : '',
 
-				description: document.querySelector('p[class="ProfileHeaderCard-bio u-dir"]') ? document.querySelector('p[class="ProfileHeaderCard-bio u-dir"]').innerText : '',
+        tweetsCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--tweets is-active"] > a > span[data-count]')
+          ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--tweets is-active"] > a > span[data-count]').getAttribute('data-count')
+          : '',
 
-				followersCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--followers"] > a > span[data-count]') ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--followers"] > a > span[data-count]').getAttribute('data-count') : '',
+        followingsCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--following"] > a > span[data-count]')
+          ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--following"] > a > span[data-count]').getAttribute('data-count')
+          : '',
 
-				tweetsCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--tweets is-active"] > a > span[data-count]') ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--tweets is-active"] > a > span[data-count]').getAttribute('data-count') : '',
+        likesCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--favorites"] > a > span[data-count]')
+          ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--favorites"] > a > span[data-count]').getAttribute('data-count')
+          : '',
 
-				followingsCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--following"] > a > span[data-count]') ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--following"] > a > span[data-count]').getAttribute('data-count') : '',
+        location: document.querySelector('div[class="ProfileHeaderCard-location "]') ? document.querySelector('div[class="ProfileHeaderCard-location "]').innerText : '',
 
-				likesCount: document.querySelector('li[class="ProfileNav-item ProfileNav-item--favorites"] > a > span[data-count]') ? document.querySelector('li[class="ProfileNav-item ProfileNav-item--favorites"] > a > span[data-count]').getAttribute('data-count') : '',
+        url: document.querySelector('a[title="http://www.udemy.com"]') ? document.querySelector('a[title="http://www.udemy.com"]').getAttribute('title') : '',
 
-				location: document.querySelector('div[class="ProfileHeaderCard-location "]') ? document.querySelector('div[class="ProfileHeaderCard-location "]').innerText : '',
+        registrationDate: document.querySelector('span[class="ProfileHeaderCard-joinDateText js-tooltip u-dir"]')
+          ? document.querySelector('span[class="ProfileHeaderCard-joinDateText js-tooltip u-dir"]').innerText
+          : '',
 
-				url: document.querySelector('a[title="http://www.udemy.com"]') ? document.querySelector('a[title="http://www.udemy.com"]').getAttribute('title') : '',
+        isVerified: document.querySelector('span[class="ProfileHeaderCard-badges"] span[class="Icon Icon--verified"]') ? true : false,
+      };
+    });
 
-				registrationDate: document.querySelector('span[class="ProfileHeaderCard-joinDateText js-tooltip u-dir"]') ? document.querySelector('span[class="ProfileHeaderCard-joinDateText js-tooltip u-dir"]').innerText : '',
+    fs.writeFileSync('./user.json', JSON.stringify(details), 'utf-8');
+    return details;
+  },
 
-				isVerified : document.querySelector('span[class="ProfileHeaderCard-badges"] span[class="Icon Icon--verified"]') ? true : false
+  getTweets: async (username, count = 10) => {
+    let url = await page.url();
 
-			}
-		});
+    if (url != USERNAME_URL(username)) {
+      await page.goto(USERNAME_URL(username));
+    }
 
-		fs.writeFileSync('./user.json',JSON.stringify(details),'utf-8');
-		return details;
-	},
+    await page.waitFor('#stream-items-id');
 
-	getTweets: async (username,count = 10) => {
-		let url = await page.url();
+    let tweetsArray = await page.$$('#stream-items-id > li');
+    let lastTweetsArrayLength = 0;
+    let tweets = [];
 
-		if(url != USERNAME_URL(username)){
-			await page.goto(USERNAME_URL(username));
-		}
+    while (tweetsArray.length < count) {
+      await page.evaluate('window.scrollTo(0,document.body.scrollHeight)');
+      await page.waitFor(3000);
 
-		await page.waitFor('#stream-items-id');
+      tweetsArray = await page.$$('#stream-items-id > li');
 
-		let tweetsArray = await page.$$('#stream-items-id > li');
-		let lastTweetsArrayLength = 0;
-		let tweets = []
+      if (lastTweetsArrayLength == tweetsArray.length) break;
 
-		while(tweetsArray.length < count){
-			await page.evaluate('window.scrollTo(0,document.body.scrollHeight)');
-			await page.waitFor(3000);
+      lastTweetsArrayLength = tweetsArray.length;
+    }
 
-			tweetsArray = await page.$$('#stream-items-id > li');
+    for (let tweetElement of tweetsArray) {
+      let tweet = await tweetElement.$eval('div[class="js-tweet-text-container"]', (element) => element.innerText);
 
-			if(lastTweetsArrayLength == tweetsArray.length) break;
+      let postedDate = await tweetElement.$eval('a[class="tweet-timestamp js-permalink js-nav js-tooltip"]', (element) => element.getAttribute('title'));
 
-			lastTweetsArrayLength = tweetsArray.length;
-		}
+      let repliesCount = await tweetElement.$eval('span[class="ProfileTweet-actionCountForPresentation"]', (element) => element.innerText);
 
+      let retweetsCount = await tweetElement.$eval(
+        'div[class="ProfileTweet-action ProfileTweet-action--retweet js-toggleState js-toggleRt"] span[class="ProfileTweet-actionCountForPresentation"]',
+        (element) => element.innerText
+      );
 
-		for(let tweetElement of tweetsArray){
-			let tweet = await tweetElement.$eval('div[class="js-tweet-text-container"]',element => element.innerText);
+      let likesCount = await tweetElement.$eval(
+        'div[class="ProfileTweet-action ProfileTweet-action--favorite js-toggleState"] span[class="ProfileTweet-actionCountForPresentation"]',
+        (element) => element.innerText
+      );
 
-			let postedDate = await tweetElement.$eval('a[class="tweet-timestamp js-permalink js-nav js-tooltip"]',element => element.getAttribute('title'));
+      tweets.push({
+        tweet,
+        postedDate,
+        repliesCount,
+        retweetsCount,
+        likesCount,
+      });
+    }
 
-			let repliesCount = await tweetElement.$eval('span[class="ProfileTweet-actionCountForPresentation"]',element => element.innerText)
-
-			let retweetsCount = await tweetElement.$eval('div[class="ProfileTweet-action ProfileTweet-action--retweet js-toggleState js-toggleRt"] span[class="ProfileTweet-actionCountForPresentation"]',element => element.innerText);
-
-			let likesCount = await tweetElement.$eval('div[class="ProfileTweet-action ProfileTweet-action--favorite js-toggleState"] span[class="ProfileTweet-actionCountForPresentation"]',element => element.innerText);
-
-			tweets.push({
-				tweet,
-				postedDate,
-				repliesCount,
-				retweetsCount,
-				likesCount
-			});
-		}
-
-		tweets = tweets.slice(0,count);
-		fs.writeFileSync('./tweets.json',JSON.stringify(tweets),'utf-8');
-		return tweets;
-	},
-	end: async () => {
-		await browser.close()
-	}
+    tweets = tweets.slice(0, count);
+    fs.writeFileSync('./tweets.json', JSON.stringify(tweets), 'utf-8');
+    return tweets;
+  },
+  end: async () => {
+    await browser.close();
+  },
 };
-
 
 module.exports = twitter;
